@@ -1,6 +1,6 @@
 package com.example.cleanarch.domain.entities;
 
-public class User extends BaseEntity {
+public class User {
     private String id;
     private String name;
     private String email;
