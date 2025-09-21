@@ -55,7 +55,10 @@ public class AuditHandler implements EventHandler<UserDeletedEvent> {
     @Override
     public void handle(UserDeletedEvent event) {
         User user = event.getData();
-        // Your logic here - user is now available
+        String userId = event.getAggregateId();
+        LocalDateTime occurredOn = event.getOccurredOn();
+
+        // Your logic here - all event data is available
     }
 }
 ```
