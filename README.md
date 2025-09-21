@@ -54,7 +54,8 @@ public class UserDeletedEvent extends DomainEvent<User> {
 public class AuditHandler implements EventHandler<UserDeletedEvent> {
     @Override
     public void handle(UserDeletedEvent event) {
-        // Your logic here
+        User user = event.getData();
+        // Your logic here - user is now available
     }
 }
 ```
