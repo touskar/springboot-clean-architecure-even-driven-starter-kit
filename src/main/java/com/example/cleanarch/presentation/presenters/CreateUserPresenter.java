@@ -6,7 +6,9 @@ import com.example.cleanarch.application.dto.contracts.ViewModel;
 import com.example.cleanarch.application.dto.enums.ResponseCode;
 import com.example.cleanarch.presentation.viewmodels.CreateUserViewModel;
 import com.example.cleanarch.domain.entities.User;
+import org.springframework.stereotype.Component;
 
+@Component
 public class CreateUserPresenter implements IPresenter<User> {
     private IUseCaseResponse<User> response;
     private CreateUserViewModel viewModel;

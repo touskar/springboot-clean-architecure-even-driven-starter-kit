@@ -7,8 +7,10 @@ import com.example.cleanarch.application.dto.PaginatedData;
 import com.example.cleanarch.application.dto.enums.ResponseCode;
 import com.example.cleanarch.presentation.viewmodels.ListUserViewModel;
 import com.example.cleanarch.domain.entities.User;
+import org.springframework.stereotype.Component;
 import java.util.List;
 
+@Component
 public class ListUserPresenter implements IPresenter<PaginatedData<User>> {
     private IUseCaseResponse<PaginatedData<User>> response;
     private ListUserViewModel viewModel;

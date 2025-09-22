@@ -15,18 +15,23 @@ public class UserController extends ApiResponse {
 
     private final CreateUserUseCase createUserUseCase;
     private final ListUserUseCase listUserUseCase;
+    private final CreateUserPresenter createUserPresenter;
+    private final ListUserPresenter listUserPresenter;
 
-    public UserController(CreateUserUseCase createUserUseCase, ListUserUseCase listUserUseCase) {
+    public UserController(CreateUserUseCase createUserUseCase,
+                         ListUserUseCase listUserUseCase,
+                         CreateUserPresenter createUserPresenter,
+                         ListUserPresenter listUserPresenter) {
         this.createUserUseCase = createUserUseCase;
         this.listUserUseCase = listUserUseCase;
+        this.createUserPresenter = createUserPresenter;
+        this.listUserPresenter = listUserPresenter;
     }
 
     @PostMapping("/api/v1/register")
     public ResponseEntity<?> register(@RequestBody CreateUserRequest request) {
-        CreateUserPresenter presenter = new CreateUserPresenter();
-
-        createUserUseCase.execute(request, presenter);
-        return send(presenter.getViewModel());
+        createUserUseCase.execute(request, createUserPresenter);
+        return send(createUserPresenter.getViewModel());
     }
 
     @GetMapping("/api/v1/users")
@@ -34,10 +39,8 @@ public class UserController extends ApiResponse {
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) String search) {
 
-        ListUsersRequest request = new ListUsersRequest();
-        ListUserPresenter presenter = new ListUserPresenter();
-
-        listUserUseCase.execute(request, presenter);
-        return send(presenter.getViewModel());
+        ListUsersRequest request = new ListUsersRequest(page, search);
+        listUserUseCase.execute(request, listUserPresenter);
+        return send(listUserPresenter.getViewModel());
     }
 }
