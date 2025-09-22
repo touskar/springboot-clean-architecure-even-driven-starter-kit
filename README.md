@@ -69,12 +69,86 @@ UserDeletedEvent event = new UserDeletedEvent(user);
 eventPublisher.publish(event);
 ```
 
+## Clean Architecture Configuration
+
+You have **two options** for configuring domain services:
+
+### Option 1: Framework-Independent (Recommended for Pure Clean Architecture)
+
+Keep domain services completely free of framework dependencies:
+
+```java
+// Domain service - NO Spring annotations
+public class UserService {
+    private final UserRepository userRepository;
+
+    public UserService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
+    public User createUser(String name, String email) {
+        // Pure business logic
+    }
+}
+```
+
+Then configure in infrastructure layer:
+
+```java
+@Configuration
+public class DomainConfig {
+
+    @Bean
+    public UserService userService(UserRepository userRepository) {
+        return new UserService(userRepository);
+    }
+}
+```
+
+**Benefits:**
+- **Framework Independence**: Domain works with any framework
+- **Better Testability**: No Spring context needed for tests
+- **Pure Clean Architecture**: Infrastructure depends on domain, not vice versa
+
+### Option 2: Spring Annotations (Simpler, but couples to Spring)
+
+Use Spring annotations directly on domain services:
+
+```java
+@Service
+public class UserService {
+    private final UserRepository userRepository;
+
+    public UserService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
+    public User createUser(String name, String email) {
+        // Business logic
+    }
+}
+```
+
+**Benefits:**
+- **Simpler**: Less configuration needed
+- **Familiar**: Standard Spring approach
+
+**Trade-offs:**
+- **Framework Coupling**: Domain depends on Spring
+- **Less Flexible**: Harder to switch frameworks later
+
+### Choose Based on Your Needs
+
+- **Pure Clean Architecture projects**: Use Option 1
+- **Spring-focused projects**: Option 2 is acceptable
+
 ## Key Features
 
 - **Auto-Discovery**: Events and handlers found automatically
 - **Type-Safe**: Class-based registration (no strings)
 - **Dynamic Package Detection**: Works with any package structure
 - **Multiple Handlers**: Many handlers can listen to one event
+- **Clean Architecture**: Framework-agnostic domain layer
 
 ## Running the Application
 
