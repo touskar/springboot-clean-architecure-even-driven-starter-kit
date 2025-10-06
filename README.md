@@ -153,32 +153,227 @@ All entities include strategic indexes for optimal query performance:
 
 ## 📁 Repository Pattern
 
-### Two Implementations Provided
+This project implements a **three-tier repository architecture** that provides clean separation between domain, persistence, and database layers.
 
-#### 1. JPA Repository (Default - @Primary)
+### Repository Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     DOMAIN LAYER                             │
+│  ┌────────────────────────────────────────────────────┐    │
+│  │  IUserRepository (interface)                       │    │
+│  │  - Defines domain contract (business operations)   │    │
+│  │  - Location: domain/repositories/                  │    │
+│  │  - Prefix: "I" (e.g., IUserRepository)            │    │
+│  │  - Returns: Domain entities (User, Role, etc.)    │    │
+│  └────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────┘
+                           ↑
+                           │ implements
+                           │
+┌─────────────────────────────────────────────────────────────┐
+│              INFRASTRUCTURE - PERSISTENCE LAYER              │
+│  ┌────────────────────────────────────────────────────┐    │
+│  │  UserRepositoryImpl (implementation)               │    │
+│  │  - Bridges domain and infrastructure              │    │
+│  │  - Location: infrastructure/persistence/repository/│    │
+│  │  - Suffix: "Impl" (e.g., UserRepositoryImpl)     │    │
+│  │  - Uses: Mapper + JPA Repository                  │    │
+│  │  - Converts: Entity ↔ Domain                      │    │
+│  └────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────┘
+                           ↓
+                      uses / delegates to
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│              INFRASTRUCTURE - DATABASE LAYER                 │
+│  ┌────────────────────────────────────────────────────┐    │
+│  │  JpaUserRepository (Spring Data JPA)               │    │
+│  │  - Spring Data JPA interface                       │    │
+│  │  - Location: infrastructure/database/repository/   │    │
+│  │  - Prefix: "Jpa" (e.g., JpaUserRepository)       │    │
+│  │  - Extends: JpaRepository<UserEntity, String>     │    │
+│  │  - Works with: JPA Entities (UserEntity)          │    │
+│  └────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Three Repository Types Explained
+
+#### 1. Domain Repository Interface (IUserRepository)
+
+**Purpose**: Defines the contract for data operations in business terms.
+
+**Location**: `domain/repositories/IUserRepository.java`
+
+**Naming Convention**: Prefix with "I" (Interface)
 
 ```java
-@Repository
-@Primary
+/**
+ * Domain repository interface - defines business operations
+ * Note: "I" prefix indicates this is an interface
+ */
+public interface IUserRepository {
+    User save(User user);
+    Optional<User> findById(String id);
+    Optional<User> findByEmail(String email);
+    List<User> findAll();
+    void deleteById(String id);
+}
+```
+
+**Key Characteristics**:
+- ✅ Framework-independent (pure Java interface)
+- ✅ Works with domain entities (`User`, `Role`, etc.)
+- ✅ Defines business operations
+- ✅ Part of the domain layer
+- ❌ No JPA annotations
+- ❌ No implementation details
+
+#### 2. Repository Implementation (UserRepositoryImpl)
+
+**Purpose**: Bridges domain layer with infrastructure (JPA).
+
+**Location**: `infrastructure/persistence/repository/UserRepositoryImpl.java`
+
+**Naming Convention**: Suffix with "Impl" (Implementation)
+
+```java
+/**
+ * Repository implementation - bridges domain with JPA
+ * Converts between domain entities and JPA entities using mapper
+ */
+@Component
 @RequiredArgsConstructor
-public class UserRepositoryImpl implements UserRepository {
-    private final JpaUserRepository jpaRepository;
+public class UserRepositoryImpl implements IUserRepository {
+
+    // Inject JPA repository and mapper
+    private final JpaUserRepository jpaUserRepository;
     private final UserMapper userMapper;
 
     @Override
     public User save(User user) {
-        var entity = userMapper.toEntity(Optional.of(user));
-        var saved = jpaRepository.save(entity);
+        // 1. Convert domain entity to JPA entity
+        UserEntity entity = userMapper.toEntity(Optional.of(user));
+
+        // 2. Save using JPA repository
+        UserEntity saved = jpaUserRepository.save(entity);
+
+        // 3. Convert back to domain entity
         return userMapper.toDomain(Optional.of(saved));
+    }
+
+    @Override
+    public Optional<User> findById(String id) {
+        return jpaUserRepository.findById(id)
+                .map(entity -> userMapper.toDomain(Optional.of(entity)));
+    }
+
+    @Override
+    public List<User> findAll() {
+        return jpaUserRepository.findAll().stream()
+                .map(entity -> userMapper.toDomain(Optional.of(entity)))
+                .collect(Collectors.toList());
     }
 }
 ```
 
-#### 2. In-Memory Repository (For Testing)
+**Key Characteristics**:
+- ✅ Implements domain repository interface
+- ✅ Uses `@Component` (Spring bean)
+- ✅ Delegates database operations to JPA repository
+- ✅ Uses mapper to convert Entity ↔ Domain
+- ✅ Returns domain entities to upper layers
+- ✅ Location: `infrastructure/persistence/repository/`
+
+#### 3. JPA Repository (JpaUserRepository)
+
+**Purpose**: Spring Data JPA interface for database operations.
+
+**Location**: `infrastructure/database/repository/JpaUserRepository.java`
+
+**Naming Convention**: Prefix with "Jpa"
 
 ```java
+/**
+ * Spring Data JPA repository - handles database operations
+ * Note: "Jpa" prefix distinguishes from domain repository interface
+ */
 @Repository
-public class InMemoryUserRepository implements UserRepository {
+public interface JpaUserRepository extends JpaRepository<UserEntity, String> {
+
+    // Spring Data JPA automatically implements these methods
+    Optional<UserEntity> findByEmail(String email);
+    List<UserEntity> findByStatus(String status);
+
+    // Custom query methods
+    @Query("SELECT u FROM UserEntity u WHERE u.createdAt > :date")
+    List<UserEntity> findRecentUsers(@Param("date") Instant date);
+}
+```
+
+**Key Characteristics**:
+- ✅ Extends `JpaRepository<UserEntity, String>`
+- ✅ Works with JPA entities (`UserEntity`)
+- ✅ Uses `@Repository` annotation
+- ✅ Provides automatic CRUD operations
+- ✅ Supports custom query methods
+- ✅ Location: `infrastructure/database/repository/`
+- ❌ NOT injected directly into use cases (only into repository implementations)
+
+### Why Three Layers?
+
+#### Separation of Concerns
+
+1. **Domain Layer** (`IUserRepository`)
+   - Defines WHAT operations are needed (business contract)
+   - No knowledge of HOW data is stored
+   - Framework-independent
+
+2. **Persistence Layer** (`UserRepositoryImpl`)
+   - Implements HOW domain operations work
+   - Translates between domain and database
+   - Uses mappers for conversion
+
+3. **Database Layer** (`JpaUserRepository`)
+   - Handles actual database operations
+   - Spring Data JPA magic
+   - Only knows about JPA entities
+
+#### Clean Architecture Benefits
+
+```
+Use Case → IUserRepository → UserRepositoryImpl → JpaUserRepository → Database
+   ↓            ↓                   ↓                    ↓
+ Domain      Domain            Infrastructure      Infrastructure
+  Layer      Contract           Implementation         (Spring)
+```
+
+- **Testability**: Mock `IUserRepository` in use case tests
+- **Flexibility**: Swap implementations without changing domain
+- **Independence**: Domain doesn't depend on JPA or Spring
+
+### Naming Conventions Summary
+
+| Repository Type | Prefix/Suffix | Example | Location |
+|----------------|---------------|---------|----------|
+| Domain Interface | **I** prefix | `IUserRepository` | `domain/repositories/` |
+| Repository Implementation | **Impl** suffix | `UserRepositoryImpl` | `infrastructure/persistence/repository/` |
+| JPA Repository | **Jpa** prefix | `JpaUserRepository` | `infrastructure/database/repository/` |
+
+### Alternative Implementation: In-Memory Repository
+
+You can also provide alternative implementations for testing:
+
+```java
+/**
+ * In-memory repository implementation for testing
+ * Implements same domain interface but uses HashMap
+ */
+@Component
+@RequiredArgsConstructor
+public class InMemoryUserRepository implements IUserRepository {
+
     private final Map<String, User> users = new ConcurrentHashMap<>();
 
     @Override
@@ -187,13 +382,77 @@ public class InMemoryUserRepository implements UserRepository {
             user.setId(UlidGenerator.generate());
             user.setCreatedAt(Instant.now());
         }
+        user.setUpdatedAt(Instant.now());
         users.put(user.getId(), user);
         return user;
+    }
+
+    @Override
+    public Optional<User> findById(String id) {
+        return Optional.ofNullable(users.get(id));
+    }
+
+    @Override
+    public List<User> findAll() {
+        return new ArrayList<>(users.values());
     }
 }
 ```
 
-**To switch implementations**: Remove `@Primary` annotation from `UserRepositoryImpl`
+**To switch implementations**: Use `@Primary` annotation on the implementation you want to be the default, or use `@Qualifier` when injecting.
+
+### Data Flow Example
+
+```java
+// 1. Use Case calls domain repository interface
+@Component
+@RequiredArgsConstructor
+public class CreateUserUseCase {
+    private final IUserRepository userRepository; // Domain interface
+
+    public User execute(CreateUserRequest request) {
+        User user = User.builder()
+            .name(request.getName())
+            .email(request.getEmail())
+            .build();
+
+        // Calls domain interface - no knowledge of JPA
+        return userRepository.save(user);
+    }
+}
+
+// 2. UserRepositoryImpl handles the call
+@Component
+public class UserRepositoryImpl implements IUserRepository {
+
+    public User save(User user) {
+        // Convert: Domain → Entity
+        UserEntity entity = userMapper.toEntity(Optional.of(user));
+
+        // Call JPA repository
+        UserEntity saved = jpaUserRepository.save(entity);
+
+        // Convert: Entity → Domain
+        return userMapper.toDomain(Optional.of(saved));
+    }
+}
+
+// 3. JpaUserRepository executes database operation
+@Repository
+public interface JpaUserRepository extends JpaRepository<UserEntity, String> {
+    // Spring Data JPA handles the actual SQL
+}
+```
+
+### Key Takeaways
+
+✅ **Domain interfaces** (`IUserRepository`) define business operations
+✅ **Repository implementations** (`UserRepositoryImpl`) bridge domain and infrastructure
+✅ **JPA repositories** (`JpaUserRepository`) handle database operations
+✅ **Mappers** convert between domain entities and JPA entities
+✅ **Use cases** only depend on domain interfaces, never on JPA repositories directly
+
+This architecture ensures clean separation, testability, and flexibility to change implementations without affecting business logic.
 
 ## 🎯 Event System
 
@@ -417,34 +676,85 @@ public class ProductMapper implements IDomainMapper<Product, ProductEntity> {
 }
 ```
 
-### 4. Create Repository
+### 4. Create Repository (Three Layers)
+
+#### a. Domain Repository Interface
+
+**Location**: `domain/repositories/IProductRepository.java`
 
 ```java
-// Domain interface
-public interface ProductRepository {
+/**
+ * Domain repository interface for Product
+ * Note: "I" prefix following naming convention
+ */
+public interface IProductRepository {
     Product save(Product product);
     Optional<Product> findById(String id);
     List<Product> findAll();
+    void deleteById(String id);
 }
+```
 
-// JPA Repository
+#### b. JPA Repository
+
+**Location**: `infrastructure/database/repository/JpaProductRepository.java`
+
+```java
+/**
+ * Spring Data JPA repository for ProductEntity
+ * Note: "Jpa" prefix distinguishes from domain repository
+ */
 @Repository
 public interface JpaProductRepository extends JpaRepository<ProductEntity, String> {
+    // Custom query methods
+    List<ProductEntity> findByPriceGreaterThan(BigDecimal price);
 }
+```
 
-// Implementation
-@Repository
-@Primary
+#### c. Repository Implementation
+
+**Location**: `infrastructure/persistence/repository/ProductRepositoryImpl.java`
+
+```java
+/**
+ * Repository implementation - bridges domain and JPA
+ * Note: "Impl" suffix indicates implementation class
+ */
+@Component
 @RequiredArgsConstructor
-public class ProductRepositoryImpl implements ProductRepository {
-    private final JpaProductRepository jpaRepository;
+public class ProductRepositoryImpl implements IProductRepository {
+
+    private final JpaProductRepository jpaProductRepository;
     private final ProductMapper productMapper;
 
     @Override
     public Product save(Product product) {
-        var entity = productMapper.toEntity(Optional.of(product));
-        var saved = jpaRepository.save(entity);
+        // Convert domain → entity
+        ProductEntity entity = productMapper.toEntity(Optional.of(product));
+
+        // Save via JPA
+        ProductEntity saved = jpaProductRepository.save(entity);
+
+        // Convert entity → domain
         return productMapper.toDomain(Optional.of(saved));
+    }
+
+    @Override
+    public Optional<Product> findById(String id) {
+        return jpaProductRepository.findById(id)
+                .map(entity -> productMapper.toDomain(Optional.of(entity)));
+    }
+
+    @Override
+    public List<Product> findAll() {
+        return jpaProductRepository.findAll().stream()
+                .map(entity -> productMapper.toDomain(Optional.of(entity)))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public void deleteById(String id) {
+        jpaProductRepository.deleteById(id);
     }
 }
 ```
@@ -494,23 +804,72 @@ src/main/java/com/example/cleanarch/
 │   ├── dto/                       # Data Transfer Objects
 │   ├── handlers/                  # Event handlers
 │   └── usecases/                  # Use case implementations
+│
 ├── domain/                        # Domain layer (framework-free)
-│   ├── entities/                  # Domain entities
+│   ├── entities/                  # Domain entities (User, Role, etc.)
 │   ├── events/                    # Domain events
-│   ├── repositories/              # Repository interfaces
+│   ├── repositories/              # Repository INTERFACES
+│   │   └── IUserRepository.java   # Interface with "I" prefix
 │   └── services/                  # Domain services
+│
 ├── infrastructure/                # Infrastructure layer
 │   ├── config/                    # Spring configurations
-│   ├── database/entities/         # JPA entities
-│   ├── mappers/                   # Domain-Entity mappers
+│   │   ├── DomainConfig.java     # Domain bean configuration
+│   │   └── ModelMapperConfig.java # ModelMapper configuration
+│   │
+│   ├── database/                  # Database-related infrastructure
+│   │   ├── entities/              # JPA entities (UserEntity, etc.)
+│   │   └── repository/            # Spring Data JPA repositories
+│   │       └── JpaUserRepository.java  # JPA interface with "Jpa" prefix
+│   │
+│   ├── mappers/                   # Domain ↔ Entity mappers
+│   │   ├── IDomainMapper.java     # Generic mapper interface
+│   │   └── UserMapper.java        # Entity-Domain converter
+│   │
 │   ├── messaging/                 # Event system implementation
+│   │   ├── DomainEventPublisher.java
+│   │   ├── EventRegistry.java
+│   │   └── EventRegistrationProcessor.java
+│   │
 │   ├── persistence/               # Repository implementations
-│   └── utils/                     # Utilities (ULID, etc.)
+│   │   ├── repository/            # Repository implementation classes
+│   │   │   └── UserRepositoryImpl.java  # Implementation with "Impl" suffix
+│   │   └── InMemoryUserRepository.java  # Alternative implementation
+│   │
+│   └── utils/                     # Utility classes
+│       └── UlidGenerator.java     # ULID generation
+│
 └── presentation/                  # Presentation layer
     ├── controllers/               # REST controllers
     ├── presenters/                # Response formatters
     └── viewmodels/                # View models
 ```
+
+### Directory Organization Explained
+
+#### Domain Layer (`domain/`)
+- **`entities/`**: Pure Java domain models (no JPA annotations)
+- **`repositories/`**: Repository interfaces (prefixed with "I")
+  - Example: `IUserRepository`, `IRoleRepository`
+  - Defines business operations
+  - No implementation details
+
+#### Infrastructure Layer (`infrastructure/`)
+- **`database/`**: Database-specific code
+  - **`entities/`**: JPA entities with database annotations
+  - **`repository/`**: Spring Data JPA repositories (prefixed with "Jpa")
+    - Example: `JpaUserRepository`, `JpaRoleRepository`
+    - Extends `JpaRepository<Entity, String>`
+
+- **`persistence/`**: Repository implementations
+  - **`repository/`**: Implementation classes (suffixed with "Impl")
+    - Example: `UserRepositoryImpl`, `RoleRepositoryImpl`
+    - Bridges domain and JPA
+    - Uses mappers for conversion
+
+- **`mappers/`**: Conversion between domain and JPA entities
+  - All implement `IDomainMapper<D, E>`
+  - Uses ModelMapper for automatic field mapping
 
 ## 🔄 Migration from Older Versions
 

@@ -1,7 +1,7 @@
 package com.example.cleanarch.infrastructure.persistence;
 
 import com.example.cleanarch.domain.entities.User;
-import com.example.cleanarch.domain.repositories.UserRepository;
+import com.example.cleanarch.domain.repositories.IUserRepository;
 import com.example.cleanarch.infrastructure.utils.UlidGenerator;
 import org.springframework.stereotype.Repository;
 
@@ -11,11 +11,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
- * In-memory implementation of UserRepository.
+ * In-memory implementation of IUserRepository.
  * Useful for testing and demos. Uses ULID for IDs.
  */
 @Repository
-public class InMemoryUserRepository implements UserRepository {
+public class InMemoryUserRepository implements IUserRepository {
     private final Map<String, User> users = new ConcurrentHashMap<>();
 
     @Override

@@ -1,7 +1,8 @@
-package com.example.cleanarch.infrastructure.persistence;
+package com.example.cleanarch.infrastructure.persistence.repository;
 
 import com.example.cleanarch.domain.entities.User;
-import com.example.cleanarch.domain.repositories.UserRepository;
+import com.example.cleanarch.domain.repositories.IUserRepository;
+import com.example.cleanarch.infrastructure.database.repository.JpaUserRepository;
 import com.example.cleanarch.infrastructure.mappers.UserMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Primary;
@@ -12,7 +13,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * JPA-based implementation of UserRepository.
+ * JPA-based implementation of IUserRepository.
  * Uses UserMapper to convert between domain and entity models.
  *
  * Note: @Primary annotation makes this the default implementation
@@ -22,7 +23,7 @@ import java.util.stream.Collectors;
 @Repository
 @Primary
 @RequiredArgsConstructor
-public class UserRepositoryImpl implements UserRepository {
+public class UserRepositoryImpl implements IUserRepository {
 
     private final JpaUserRepository jpaRepository;
     private final UserMapper userMapper;

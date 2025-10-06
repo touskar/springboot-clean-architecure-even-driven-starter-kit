@@ -1,4 +1,4 @@
-package com.example.cleanarch.infrastructure.persistence;
+package com.example.cleanarch.infrastructure.database.repository;
 
 import com.example.cleanarch.infrastructure.database.entities.UserEntity;
 import org.springframework.data.jpa.repository.JpaRepository;

@@ -1,14 +1,14 @@
 package com.example.cleanarch.domain.services;
 
 import com.example.cleanarch.domain.entities.User;
-import com.example.cleanarch.domain.repositories.UserRepository;
+import com.example.cleanarch.domain.repositories.IUserRepository;
 import java.util.UUID;
 
 public class UserService {
 
-    private final UserRepository userRepository;
+    private final IUserRepository userRepository;
 
-    public UserService(UserRepository userRepository) {
+    public UserService(IUserRepository userRepository) {
         this.userRepository = userRepository;
     }
 
