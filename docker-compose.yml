@@ -1,0 +1,105 @@
+version: '3.9'
+
+services:
+  # ======== CockroachDB (Main Database) ========
+  cockroachdb:
+    image: cockroachdb/cockroach:v23.2.0
+    container_name: cockroachdb
+    command: start-single-node --insecure
+    ports:
+      - "${DB_PORT:-26257}:26257"  # SQL port
+      - "${DB_ADMIN_UI_PORT:-8080}:8080"  # Admin UI
+    volumes:
+      - cockroachdb_data:/cockroach/cockroach-data
+    networks:
+      - cleanarch_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ======== Redis (Cache & Session Store) ========
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - cleanarch_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ======== Elasticsearch (Log Storage & Search) ========
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=true
+      - xpack.security.http.ssl.enabled=false
+      - ELASTIC_PASSWORD=${ELASTICSEARCH_PASSWORD:-elastic123}
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "${ELASTICSEARCH_PORT:-9200}:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - cleanarch_network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -u elastic:${ELASTICSEARCH_PASSWORD:-elastic123} -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ======== Logstash (Log Ingestion Pipeline) ========
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.11.0
+    container_name: logstash
+    volumes:
+      - ./logstash/pipeline:/usr/share/logstash/pipeline
+      - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml
+    environment:
+      - ELASTICSEARCH_USERNAME=${ELASTICSEARCH_USER:-elastic}
+      - ELASTICSEARCH_PASSWORD=${ELASTICSEARCH_PASSWORD:-elastic123}
+      - "LS_JAVA_OPTS=-Xms256m -Xmx256m"
+    ports:
+      - "${ELASTICSEARCH_LOGSTASH_PORT:-5000}:5000"
+    networks:
+      - cleanarch_network
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+  # ======== Kibana (Log Visualization) ========
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - ELASTICSEARCH_USERNAME=${ELASTICSEARCH_USER:-elastic}
+      - ELASTICSEARCH_PASSWORD=${ELASTICSEARCH_PASSWORD:-elastic123}
+    ports:
+      - "${KIBANA_PORT:-5601}:5601"
+    networks:
+      - cleanarch_network
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+networks:
+  cleanarch_network:
+    driver: bridge
+
+volumes:
+  cockroachdb_data:
+    driver: local
+  redis_data:
+    driver: local
+  elasticsearch_data:
+    driver: local

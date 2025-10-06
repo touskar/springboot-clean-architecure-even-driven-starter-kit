@@ -1,0 +1,29 @@
+server:
+  port: ${SERVICE_API_PORT}
+
+spring:
+  application:
+    name: service-api
+
+  # Import shared configuration from common-core
+  config:
+    import: classpath:application-common.yml
+
+  # API-specific security configuration
+  security:
+    jwt:
+      secret: ${JWT_SECRET}
+      expiration: ${JWT_EXPIRATION}
+
+# Runtime identification
+runtime:
+  service-type: api-service
+  service-name: ${spring.application.name}
+  service-version: ${project.version:1.0.0-SNAPSHOT}
+
+# API-specific logging
+logging:
+  file:
+    name: ${LOG_FILE_PATH}/service-api.log
+    max-size: ${LOG_FILE_MAX_SIZE}
+    max-history: ${LOG_FILE_MAX_HISTORY}
