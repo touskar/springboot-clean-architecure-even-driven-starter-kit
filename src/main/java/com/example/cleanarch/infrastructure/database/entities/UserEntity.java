@@ -1,48 +1,62 @@
 package com.example.cleanarch.infrastructure.database.entities;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import com.example.cleanarch.infrastructure.utils.UlidGenerator;
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
+import java.time.Instant;
+
+/**
+ * JPA Entity for User.
+ * Includes ULID generation, timestamps, and database indexes.
+ */
 @Entity
-@Table(name = "users")
+@Table(
+    name = "users",
+    indexes = {
+        @Index(name = "idx_user_email", columnList = "email"),
+        @Index(name = "idx_user_created_at", columnList = "createdAt")
+    }
+)
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class UserEntity {
-    @Id
-    private String id;
 
+    @Id
+    private String id; // ULID
+
+    @Column(nullable = false)
     private String name;
+
+    @Column(nullable = false, unique = true)
     private String email;
 
-    public UserEntity() {}
+    @Column(nullable = false, updatable = false)
+    private Instant createdAt;
 
-    public UserEntity(String name, String email) {
-        this.name = name;
-        this.email = email;
+    @Column(nullable = false)
+    private Instant updatedAt;
+
+    /**
+     * JPA lifecycle callback - executed before entity is persisted
+     */
+    @PrePersist
+    protected void onCreate() {
+        if (id == null) {
+            id = UlidGenerator.generate();
+        }
+        createdAt = Instant.now();
+        updatedAt = Instant.now();
     }
 
-    public String getId() {
-        return id;
-    }
-
-    public void setId(String id) {
-        this.id = id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
+    /**
+     * JPA lifecycle callback - executed before entity is updated
+     */
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = Instant.now();
     }
 }

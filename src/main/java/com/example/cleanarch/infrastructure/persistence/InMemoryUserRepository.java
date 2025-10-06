@@ -2,22 +2,30 @@ package com.example.cleanarch.infrastructure.persistence;
 
 import com.example.cleanarch.domain.entities.User;
 import com.example.cleanarch.domain.repositories.UserRepository;
+import com.example.cleanarch.infrastructure.utils.UlidGenerator;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
+/**
+ * In-memory implementation of UserRepository.
+ * Useful for testing and demos. Uses ULID for IDs.
+ */
 @Repository
 public class InMemoryUserRepository implements UserRepository {
     private final Map<String, User> users = new ConcurrentHashMap<>();
-    private final AtomicLong idGenerator = new AtomicLong(1);
 
     @Override
     public User save(User user) {
         if (user.getId() == null) {
-            user.setId(String.valueOf(idGenerator.getAndIncrement()));
+            user.setId(UlidGenerator.generate());
+            user.setCreatedAt(Instant.now());
+            user.setUpdatedAt(Instant.now());
+        } else {
+            user.setUpdatedAt(Instant.now());
         }
         users.put(user.getId(), user);
         return user;

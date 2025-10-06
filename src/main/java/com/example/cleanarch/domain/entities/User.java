@@ -1,36 +1,44 @@
 package com.example.cleanarch.domain.entities;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.Instant;
+
+/**
+ * Domain model for User.
+ * This is a pure domain object without any infrastructure dependencies.
+ */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class User {
-    private String id;
+    private String id; // ULID
     private String name;
     private String email;
+    private Instant createdAt;
+    private Instant updatedAt;
 
+    /**
+     * Constructor for creating new users (without ID and timestamps)
+     */
     public User(String name, String email) {
         this.name = name;
         this.email = email;
     }
 
-    public String getId() {
-        return id;
+    /**
+     * Business logic: Check if user has a valid email
+     */
+    public boolean hasValidEmail() {
+        return email != null && email.contains("@");
     }
 
-    public void setId(String id) {
-        this.id = id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
+    /**
+     * Business logic: Check if user is newly created
+     */
+    public boolean isNew() {
+        return id == null;
     }
 }
